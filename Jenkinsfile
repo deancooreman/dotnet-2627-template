@@ -3,15 +3,16 @@ node {
     stage('Checkout') {
         checkout scm
     }
-    // Remove the container of the previous deployment.
-    stage('Preparation') {
-        catchError(buildResult: 'SUCCESS') {
-            sh 'docker stop riserunning'   // stop the running container
-            sh 'docker rm riserunning'     // delete it, so the name is free again
-        }
-    }
-    // Build the image (this also runs the tests) and start the container.
+    // Build the image on the buildserver. The Dockerfile also runs the unit
+    // tests, so a failing test stops the pipeline here, before the deploy.
     stage('Build & Test') {
-        sh 'bash rise-app.sh'
+        sh 'bash rise-app.sh build'
+    }
+    // Copy the image to the appserver and (re)start the container there. The
+    // SSH key is the credential created by Ansible (Configuration as Code).
+    stage('Deploy') {
+        sshagent(credentials: ['appserver-deploy']) {
+            sh 'bash rise-app.sh deploy'
+        }
     }
 }
