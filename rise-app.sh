@@ -6,7 +6,8 @@
 #        bash rise-app.sh deploy   copy the image to the appserver and start it
 #
 # The deploy step logs in on the appserver over SSH. In Jenkins, the key comes
-# from the credential `appserver-deploy` (see the Jenkinsfile).
+# from the credential `appserver-deploy` (see the Jenkinsfile). The address and
+# SSH port of the appserver can be set with APPSERVER_IP and APPSERVER_PORT.
 
 set -euo pipefail
 
@@ -17,12 +18,14 @@ readonly container=riserunning
 readonly volume=rise_data
 readonly port=5001
 readonly appserver_ip="${APPSERVER_IP:-172.16.0.20}"
+# SSH port of the appserver (e.g. a forwarded port on the VIC environment)
+readonly appserver_port="${APPSERVER_PORT:-22}"
 readonly appserver="deploy@${appserver_ip}"
 
 # Run a command on the appserver. BatchMode: fail instead of asking for a
 # password or to confirm the host key, Jenkins can't answer.
 on_appserver() {
-  ssh -o BatchMode=yes "${appserver}" "$@"
+  ssh -o BatchMode=yes -p "${appserver_port}" "${appserver}" "$@"
 }
 
 build() {
