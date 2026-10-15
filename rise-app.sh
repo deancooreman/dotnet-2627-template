@@ -8,6 +8,7 @@
 # The deploy step logs in on the appserver over SSH. In Jenkins, the key comes
 # from the credential `appserver-deploy` (see the Jenkinsfile). The address and
 # SSH port of the appserver can be set with APPSERVER_IP and APPSERVER_PORT.
+# BUILD_CGROUP_PARENT (optional) is the systemd slice the build runs in.
 
 set -euo pipefail
 
@@ -87,7 +88,15 @@ EXPOSE ${port}
 CMD ["dotnet", "Rise.Server.dll"]
 _EOF_
 
-  docker build -t "${image}" tempdir
+  # On the buildserver, the RUN steps run in a systemd slice with a memory
+  # limit (BUILD_CGROUP_PARENT, set by Jenkins), so a build that needs too much
+  # memory fails instead of taking down Jenkins or the whole VM.
+  local build_options=()
+  if [[ -n "${BUILD_CGROUP_PARENT:-}" ]]; then
+    build_options+=(--cgroup-parent "${BUILD_CGROUP_PARENT}")
+  fi
+
+  docker build "${build_options[@]}" -t "${image}" tempdir
 }
 
 deploy() {
