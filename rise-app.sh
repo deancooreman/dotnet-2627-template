@@ -117,15 +117,18 @@ deploy() {
   # The previous image is now untagged, clean it up
   on_appserver docker image prune --force
 
-  # Check that the app answers (it needs a few seconds to start)
-  echo "Waiting for http://${appserver_ip}:${port}/"
-  for _ in $(seq 1 30); do
-    if curl --fail --silent --output /dev/null "http://${appserver_ip}:${port}/"; then
-      echo "The app is up at http://${appserver_ip}:${port}/"
-      return 0
-    fi
-    sleep 2
-  done
+  # Check that the app answers (it needs a few seconds to start). The check
+  # runs on the appserver itself: on VIC only the SSH port of the appserver is
+  # reachable from the buildserver, not the port of the app.
+  echo "Waiting for http://localhost:${port}/ on ${appserver_ip}"
+  if on_appserver "for _ in \$(seq 1 30); do
+      curl --fail --silent --output /dev/null --max-time 5 http://localhost:${port}/ && exit 0
+      sleep 2
+    done
+    exit 1"; then
+    echo "The app is up on ${appserver_ip}, port ${port}"
+    return 0
+  fi
   echo "The app did not answer within 60 seconds" >&2
   on_appserver docker logs --tail 50 "${container}" >&2
   return 1
